@@ -1,32 +1,40 @@
-name: Release
+name: Release Obsidian plugin
+
 on:
   push:
-    branches:
-      - master
+    tags:
+      - '*'
+env:
+    PLUGIN_NAME: MetaEdit
 jobs:
-  release:
-    name: Release
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 7
-      - name: Use Node.js ${{ matrix.node-version }}
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install
-      - name: Build
-        run: pnpm build
-      - name: Run tests
+          node-version: '18.x'
+
+      - name: Build plugin
         run: |
-          pnpm test
-      - name: Release
+          npm install
+          npm run build
+          mkdir ${{ env.PLUGIN_NAME }}
+          cp main.js manifest.json ${{ env.PLUGIN_NAME }}
+          zip -r ${{ env.PLUGIN_NAME }}.zip ${{ env.PLUGIN_NAME }}
+          ls
+
+      - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm semantic-release
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+
+          gh release create "$tag" \
+            --title="$tag" \
+            --notes-file="release-notes.md" \
+            main.js manifest.json styles.css \
+            ${{ env.PLUGIN_NAME }}.zip
